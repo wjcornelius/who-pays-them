@@ -1,0 +1,37 @@
+name: Weekly Data Refresh
+
+on:
+  schedule:
+    - cron: "0 6 * * 0"  # Every Sunday at 6am UTC
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  refresh-data:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install -r pipeline/requirements.txt
+
+      - name: Run pipeline
+        env:
+          FEC_API_KEY: ${{ secrets.FEC_API_KEY }}
+        run: cd pipeline && python generate_data.py
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git diff --quiet web/public/data/ || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit and push updated data
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add web/public/data/
+          git commit -m "Update FEC data (automated weekly refresh)"
+          git push
