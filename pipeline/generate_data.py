@@ -14,6 +14,7 @@ from config import DATA_DIR, CACHE_DIR, STATE_NAMES
 from fetch_districts import build_districts_json
 from fetch_candidates import fetch_all_candidates
 from fetch_donors import enrich_candidates_with_donors
+from fetch_governors import fetch_governor_candidates
 
 
 def build_candidates_json(candidates):
@@ -28,7 +29,10 @@ def build_candidates_json(candidates):
         state = c["state"]
         office = c["office"]
 
-        if office == "U.S. Senate":
+        if office == "Governor":
+            race_key = f"{state}-governor"
+            race_label = f"Governor - {STATE_NAMES.get(state, state)}"
+        elif office == "U.S. Senate":
             race_key = f"{state}-senate"
             race_label = f"U.S. Senate - {STATE_NAMES.get(state, state)}"
         else:
@@ -145,11 +149,11 @@ def build_metadata_json():
     """Save metadata about when data was last updated."""
     metadata = {
         "last_updated": datetime.utcnow().isoformat() + "Z",
-        "data_source": "Federal Election Commission (FEC)",
+        "data_source": "Federal Election Commission (FEC) and Ballotpedia",
         "data_source_url": "https://www.fec.gov",
         "api_docs": "https://api.open.fec.gov/developers/",
         "election_year": 2026,
-        "disclaimer": "This tool presents publicly available campaign finance records from the FEC. It is non-partisan and does not endorse or oppose any candidate.",
+        "disclaimer": "This tool presents publicly available campaign finance records from the FEC and candidate data from Ballotpedia. It is non-partisan and does not endorse or oppose any candidate.",
     }
 
     output_path = DATA_DIR / "metadata.json"
@@ -167,19 +171,24 @@ def run_full_pipeline():
     print("=" * 60)
 
     # Step 1: Zip-to-district mapping
-    print("\n[1/4] Building zip-to-district mapping...")
+    print("\n[1/5] Building zip-to-district mapping...")
     build_districts_json()
 
-    # Step 2: Fetch all candidates
-    print("\n[2/4] Fetching candidates from FEC...")
+    # Step 2: Fetch all federal candidates
+    print("\n[2/5] Fetching federal candidates from FEC...")
     candidates = fetch_all_candidates()
 
     # Step 3: Enrich with donor data (including top donors from FEC Schedule A)
-    print("\n[3/4] Fetching financial + donor data...")
+    print("\n[3/5] Fetching financial + donor data...")
     enriched = enrich_candidates_with_donors(candidates, include_donors=True)
 
-    # Step 4: Generate frontend JSON
-    print("\n[4/4] Generating frontend data...")
+    # Step 4: Fetch governor candidates from Ballotpedia
+    print("\n[4/5] Fetching governor candidates...")
+    governors = fetch_governor_candidates()
+    enriched.extend(governors)
+
+    # Step 5: Generate frontend JSON
+    print("\n[5/5] Generating frontend data...")
     build_candidates_json(enriched)
     build_metadata_json()
 

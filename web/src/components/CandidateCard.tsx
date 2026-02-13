@@ -24,6 +24,7 @@ interface Candidate {
   top_donors: Donor[];
   fec_id: string;
   fec_url: string;
+  office?: string;
 }
 
 function partyColor(party: string): string {
@@ -53,6 +54,9 @@ function formatDollar(amount: number): string {
 }
 
 export default function CandidateCard({ candidate }: { candidate: Candidate }) {
+  const isGovernor = candidate.office === "Governor";
+  const hasFinanceData = candidate.total_raised > 0 || candidate.top_donors.length > 0;
+
   return (
     <div className={`bg-white rounded-lg shadow-sm border-l-4 ${partyBorder(candidate.party)} p-5 hover:shadow-md transition-shadow`}>
       {/* Header */}
@@ -68,16 +72,27 @@ export default function CandidateCard({ candidate }: { candidate: Candidate }) {
             )}
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-2xl font-bold text-[#0a1628]">{candidate.total_raised_display}</div>
-          <div className="text-xs text-gray-500">total raised</div>
-        </div>
+        {hasFinanceData && (
+          <div className="text-right">
+            <div className="text-2xl font-bold text-[#0a1628]">{candidate.total_raised_display}</div>
+            <div className="text-xs text-gray-500">total raised</div>
+          </div>
+        )}
       </div>
 
-      {/* Funding breakdown bar */}
-      <div className="mb-4">
-        <FundingBar breakdown={candidate.funding_breakdown} />
-      </div>
+      {/* Funding breakdown bar (only if we have finance data) */}
+      {hasFinanceData && (
+        <div className="mb-4">
+          <FundingBar breakdown={candidate.funding_breakdown} />
+        </div>
+      )}
+
+      {/* Note for governor candidates without finance data */}
+      {isGovernor && !hasFinanceData && (
+        <div className="text-sm text-gray-500 italic">
+          Campaign finance data for governor races is tracked by state agencies, not the FEC.
+        </div>
+      )}
 
       {/* Top donors */}
       {candidate.top_donors.length > 0 && (

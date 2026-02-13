@@ -81,7 +81,13 @@ export default function ResultsPage() {
         const matchingRaces: Race[] = [];
         const state = info.state;
 
-        // Senate race
+        // Governor race (statewide)
+        const govKey = `${state}-governor`;
+        if (allRaces[govKey]) {
+          matchingRaces.push(allRaces[govKey]);
+        }
+
+        // Senate race (statewide)
         const senateKey = `${state}-senate`;
         if (allRaces[senateKey]) {
           matchingRaces.push(allRaces[senateKey]);
@@ -173,7 +179,7 @@ export default function ResultsPage() {
               {/* Candidate cards */}
               <div className="grid gap-4 md:grid-cols-2">
                 {race.candidates.map((candidate) => (
-                  <CandidateCard key={candidate.fec_id || candidate.name} candidate={candidate} />
+                  <CandidateCard key={candidate.fec_id || candidate.name} candidate={{...candidate, office: race.office}} />
                 ))}
               </div>
             </section>
@@ -183,11 +189,15 @@ export default function ResultsPage() {
         {/* Data source attribution */}
         <div className="text-center text-sm text-gray-500 pt-8 border-t border-gray-200">
           <p>
-            All data from{" "}
+            Federal data from{" "}
             <a href="https://www.fec.gov" className="text-[#3b82f6] hover:underline" target="_blank" rel="noopener noreferrer">
               FEC.gov
             </a>
-            . Updated weekly. •{" "}
+            . Governor candidates from{" "}
+            <a href="https://ballotpedia.org" className="text-[#3b82f6] hover:underline" target="_blank" rel="noopener noreferrer">
+              Ballotpedia
+            </a>
+            . •{" "}
             <a href="/about" className="text-[#3b82f6] hover:underline">About this tool</a>
           </p>
         </div>
