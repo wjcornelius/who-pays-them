@@ -69,6 +69,21 @@ def build_candidates_json(candidates):
 
         races[race_key]["candidates"].append(candidate_data)
 
+    # Deduplicate: same name in same race = keep best entry (most donors, or incumbent)
+    for race in races.values():
+        seen = {}
+        for c in race["candidates"]:
+            key = c["name"]
+            if key in seen:
+                prev = seen[key]
+                prev_score = (prev["incumbent"], len(prev.get("all_donors", [])), prev["total_raised"] or 0)
+                curr_score = (c["incumbent"], len(c.get("all_donors", [])), c["total_raised"] or 0)
+                if curr_score > prev_score:
+                    seen[key] = c
+            else:
+                seen[key] = c
+        race["candidates"] = list(seen.values())
+
     # Sort candidates within each race: incumbents first, then by total raised
     for race in races.values():
         race["candidates"].sort(
