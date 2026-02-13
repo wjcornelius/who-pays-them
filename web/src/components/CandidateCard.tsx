@@ -83,10 +83,15 @@ export default function CandidateCard({ candidate }: { candidate: Candidate }) {
       {candidate.top_donors.length > 0 && (
         <div>
           <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Top Donors</h4>
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             {candidate.top_donors.slice(0, 5).map((donor, i) => (
               <div key={i} className="flex justify-between items-center text-sm">
-                <span className="text-gray-700 truncate mr-2">{i + 1}. {donor.name}</span>
+                <span className="text-gray-700 truncate mr-2">
+                  {i + 1}. {donor.name}
+                  {donor.type === "pac" && (
+                    <span className="ml-1 text-[10px] font-bold text-orange-600 bg-orange-50 px-1 py-0.5 rounded">PAC</span>
+                  )}
+                </span>
                 <span className="font-medium text-[#0a1628] whitespace-nowrap">{formatDollar(donor.amount)}</span>
               </div>
             ))}

@@ -88,7 +88,7 @@ def create_dns_record(domain, record_type, name, content, ttl=600):
     }
     result = porkbun_request(f"/dns/create/{domain}", data)
     if result:
-        print(f"  Created: {record_type} {name}.{domain} → {content}")
+        print(f"  Created: {record_type} {name}.{domain} -> {content}")
         return True
     return False
 
@@ -103,7 +103,7 @@ def setup_for_vercel(domain, target=None):
     """Configure DNS records to point domain to Vercel."""
     target = target or VERCEL_CNAME
 
-    print(f"\nSetting up {domain} → {target}")
+    print(f"\nSetting up {domain} -> {target}")
 
     # Get existing records
     records = get_dns_records(domain)
@@ -113,7 +113,7 @@ def setup_for_vercel(domain, target=None):
         name = record.get("name", "")
         rtype = record.get("type", "")
         if name in (domain, f"www.{domain}") and rtype in ("A", "AAAA", "CNAME"):
-            print(f"  Removing old {rtype} record: {name} → {record.get('content')}")
+            print(f"  Removing old {rtype} record: {name} -> {record.get('content')}")
             delete_dns_record(domain, record["id"])
 
     # Create CNAME for root domain (Porkbun supports ALIAS/CNAME flattening)
@@ -122,7 +122,7 @@ def setup_for_vercel(domain, target=None):
     # Create CNAME for www subdomain
     create_dns_record(domain, "CNAME", "www", target)
 
-    print(f"\n  DNS configured! {domain} and www.{domain} → {target}")
+    print(f"\n  DNS configured! {domain} and www.{domain} -> {target}")
     print(f"  Note: DNS propagation may take up to 24 hours (usually minutes).")
 
 
@@ -135,7 +135,7 @@ def show_dns(domain):
 
     print(f"\n  DNS records for {domain}:")
     for r in records:
-        print(f"    {r['type']:6s} {r.get('name', '@'):30s} → {r.get('content', '')}")
+        print(f"    {r['type']:6s} {r.get('name', '@'):30s} -> {r.get('content', '')}")
 
 
 def check_availability(domain):

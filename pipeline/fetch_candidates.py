@@ -24,10 +24,10 @@ def fec_get(endpoint, params=None, retries=3):
 
     for attempt in range(retries):
         try:
-            resp = requests.get(url, params=params, timeout=30)
+            resp = requests.get(url, params=params, timeout=(10, 20))
             if resp.status_code == 429:
-                wait = 2 ** attempt
-                print(f"    Rate limited, waiting {wait}s...")
+                wait = 2 ** (attempt + 1)
+                print(f"    Rate limited, waiting {wait}s...", flush=True)
                 time.sleep(wait)
                 continue
             resp.raise_for_status()
@@ -36,7 +36,8 @@ def fec_get(endpoint, params=None, retries=3):
             if attempt < retries - 1:
                 time.sleep(1)
                 continue
-            raise
+            print(f"    API error: {e}", flush=True)
+            return None
 
     return None
 
@@ -158,9 +159,12 @@ def fetch_all_candidates():
     print(f"\n  Senate races ({len(SENATE_STATES_2026)} states):")
     for state in SENATE_STATES_2026:
         print(f"    {state}...", end=" ", flush=True)
-        candidates = get_candidates_for_office(state, "S")
-        print(f"{len(candidates)} candidates")
-        all_candidates.extend(candidates)
+        try:
+            candidates = get_candidates_for_office(state, "S")
+            print(f"{len(candidates)} candidates")
+            all_candidates.extend(candidates)
+        except Exception as e:
+            print(f"ERROR: {e}")
         time.sleep(0.3)
 
     # House races (all 50 states + DC + territories)
@@ -168,9 +172,12 @@ def fetch_all_candidates():
     house_states = [s for s in STATES if s not in ("PR", "GU", "VI", "AS", "MP")]
     for state in house_states:
         print(f"    {state}...", end=" ", flush=True)
-        candidates = get_candidates_for_office(state, "H")
-        print(f"{len(candidates)} candidates")
-        all_candidates.extend(candidates)
+        try:
+            candidates = get_candidates_for_office(state, "H")
+            print(f"{len(candidates)} candidates")
+            all_candidates.extend(candidates)
+        except Exception as e:
+            print(f"ERROR: {e}")
         time.sleep(0.3)
 
     # Deduplicate by FEC ID
@@ -183,20 +190,6 @@ def fetch_all_candidates():
             unique.append(c)
 
     print(f"\n  Total: {len(unique)} unique candidates")
-
-    # Look up principal committee IDs (required for donor/totals lookup)
-    print(f"\n  Fetching committee IDs...")
-    found = 0
-    for i, c in enumerate(unique):
-        if i % 50 == 0 and i > 0:
-            print(f"    {i}/{len(unique)}...")
-        committee_id = get_principal_committee(c["fec_id"])
-        if committee_id:
-            c["committee_id"] = committee_id
-            found += 1
-        time.sleep(0.15)  # Stay under rate limits
-
-    print(f"  Found committees for {found}/{len(unique)} candidates")
 
     # Cache for donor fetcher
     cache_path = CACHE_DIR / "candidates_raw.json"

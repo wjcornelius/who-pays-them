@@ -8,6 +8,7 @@ on:
 jobs:
   refresh-data:
     runs-on: ubuntu-latest
+    timeout-minutes: 360  # 6 hours - donor fetching is rate-limited
     steps:
       - uses: actions/checkout@v4
 

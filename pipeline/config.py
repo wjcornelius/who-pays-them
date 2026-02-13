@@ -13,6 +13,15 @@ CACHE_DIR = PROJECT_ROOT / ".cache"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
+# Load .env from project root
+_env_file = PROJECT_ROOT / ".env"
+if _env_file.exists():
+    for _line in _env_file.read_text().splitlines():
+        _line = _line.strip()
+        if _line and not _line.startswith("#") and "=" in _line:
+            _k, _v = _line.split("=", 1)
+            os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
+
 # FEC API
 FEC_API_KEY = os.environ.get("FEC_API_KEY", "DEMO_KEY")
 FEC_BASE_URL = "https://api.open.fec.gov/v1"

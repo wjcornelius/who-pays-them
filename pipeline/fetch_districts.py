@@ -1,5 +1,5 @@
 """
-Fetch and process zip code → congressional district mapping.
+Fetch and process zip code -> congressional district mapping.
 Uses the Census Bureau's ZCTA-to-CD relationship file.
 """
 
@@ -37,7 +37,7 @@ def download_census_crosswalk():
 
 def parse_census_crosswalk(raw_text):
     """
-    Parse Census ZCTA-CD relationship file into a zip→districts mapping.
+    Parse Census ZCTA-CD relationship file into a zip->districts mapping.
     The file has columns: ZCTA5, GEOID (state FIPS + CD number), and various area/pop fields.
     We want to map each ZCTA to its congressional district(s).
     """

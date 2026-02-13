@@ -30,14 +30,14 @@ def build_candidates_json(candidates):
 
         if office == "U.S. Senate":
             race_key = f"{state}-senate"
-            race_label = f"U.S. Senate — {STATE_NAMES.get(state, state)}"
+            race_label = f"U.S. Senate - {STATE_NAMES.get(state, state)}"
         else:
             district = c.get("district", "00").lstrip("0") or "AL"
             race_key = f"{state}-house-{district}"
             if district == "AL":
-                race_label = f"U.S. House — {STATE_NAMES.get(state, state)} (At-Large)"
+                race_label = f"U.S. House - {STATE_NAMES.get(state, state)} (At-Large)"
             else:
-                race_label = f"U.S. House — {STATE_NAMES.get(state, state)}, District {district}"
+                race_label = f"U.S. House - {STATE_NAMES.get(state, state)}, District {district}"
 
         if race_key not in races:
             races[race_key] = {
@@ -107,7 +107,7 @@ def build_metadata_json():
 def run_full_pipeline():
     """Run the complete data pipeline."""
     print("=" * 60)
-    print("WHO PAYS THEM — Data Pipeline")
+    print("WHO PAYS THEM - Data Pipeline")
     print("=" * 60)
 
     # Step 1: Zip-to-district mapping
@@ -118,9 +118,9 @@ def run_full_pipeline():
     print("\n[2/4] Fetching candidates from FEC...")
     candidates = fetch_all_candidates()
 
-    # Step 3: Enrich with donor data
-    print("\n[3/4] Fetching donor data...")
-    enriched = enrich_candidates_with_donors(candidates)
+    # Step 3: Enrich with donor data (including top donors from FEC Schedule A)
+    print("\n[3/4] Fetching financial + donor data...")
+    enriched = enrich_candidates_with_donors(candidates, include_donors=True)
 
     # Step 4: Generate frontend JSON
     print("\n[4/4] Generating frontend data...")
