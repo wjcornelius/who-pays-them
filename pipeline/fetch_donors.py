@@ -1,6 +1,6 @@
 """
 Fetch top donors for each candidate from the FEC API.
-Uses candidate-level endpoints (no committee ID lookup needed).
+Uses committee_id for Schedule A queries (candidate_id returns super PAC data).
 """
 
 import json
@@ -64,13 +64,29 @@ def get_candidate_totals(candidate_id):
     }
 
 
-def get_top_individual_donors(candidate_id):
+def get_principal_committee_id(candidate_id):
+    """Look up the principal campaign committee for a candidate."""
+    data = fec_get(f"/candidate/{candidate_id}/committees/")
+    if not data or not data.get("results"):
+        return None
+
+    for c in data["results"]:
+        if "principal" in c.get("designation_full", "").lower():
+            return c["committee_id"]
+
+    if data["results"]:
+        return data["results"][0]["committee_id"]
+    return None
+
+
+def get_individual_donors(committee_id):
     """
-    Get top itemized individual donors using candidate_id directly.
+    Get top itemized individual donors for a committee.
+    MUST use committee_id (not candidate_id, which returns super PAC data).
     Returns aggregated by employer/organization.
     """
     params = {
-        "candidate_id": candidate_id,
+        "committee_id": committee_id,
         "two_year_transaction_period": ELECTION_YEAR,
         "sort": "-contribution_receipt_amount",
         "is_individual": "true",
@@ -125,21 +141,6 @@ def get_top_individual_donors(candidate_id):
     return donors
 
 
-def get_principal_committee_id(candidate_id):
-    """Look up the principal campaign committee for a candidate."""
-    data = fec_get(f"/candidate/{candidate_id}/committees/")
-    if not data or not data.get("results"):
-        return None
-
-    for c in data["results"]:
-        if "principal" in c.get("designation_full", "").lower():
-            return c["committee_id"]
-
-    if data["results"]:
-        return data["results"][0]["committee_id"]
-    return None
-
-
 # Fundraising platforms to filter out (not real donors)
 _PAC_FILTER_NAMES = {"WINRED", "ACTBLUE", "ACTBLUE TECHNICAL SERVICES"}
 _JFC_KEYWORDS = ["VICTORY FUND", "VICTORY COMMITTEE", "JOINT FUNDRAISING"]
@@ -161,7 +162,7 @@ def get_pac_donors(committee_id):
     """
     Get PAC/committee contributions to a candidate's committee.
     Filters out WinRed, ActBlue, and joint fundraising transfers.
-    Requires the committee_id (not candidate_id).
+    MUST use committee_id (not candidate_id).
     """
     params = {
         "committee_id": committee_id,
@@ -175,7 +176,6 @@ def get_pac_donors(committee_id):
     if not data or not data.get("results"):
         return []
 
-    # Aggregate by committee name
     by_committee = defaultdict(lambda: {"total": 0, "count": 0})
 
     for item in data["results"]:
@@ -202,20 +202,6 @@ def get_pac_donors(committee_id):
 
     donors.sort(key=lambda x: x["amount"], reverse=True)
     return donors[:10]
-
-
-def get_top_donors(candidate_id, limit=10):
-    """
-    Get top donors combining both individual and PAC contributions.
-    Shows who REALLY funds each candidate.
-    """
-    individual_donors = get_top_individual_donors(candidate_id)
-    pac_donors = get_pac_donors(candidate_id)
-
-    # Combine and sort by amount
-    all_donors = individual_donors + pac_donors
-    all_donors.sort(key=lambda x: x["amount"], reverse=True)
-    return all_donors[:limit]
 
 
 def compute_funding_breakdown(totals):
@@ -250,12 +236,11 @@ def format_money(amount):
 
 
 def enrich_candidates_with_donors(candidates, include_donors=False):
-    """Add financial data to each candidate using candidate-level endpoints."""
+    """Add financial data to each candidate. Uses committee_id for donor queries."""
     print(f"\nFetching financial data for {len(candidates)} candidates...")
     if include_donors:
-        print("  (Including top donors - this will take longer)")
+        print("  (Including top donors via committee_id - this will take longer)")
 
-    # Track rate limiting: FEC allows ~1000 req/hr = ~16/min
     request_count = 0
     start_time = time.time()
 
@@ -263,7 +248,6 @@ def enrich_candidates_with_donors(candidates, include_donors=False):
         nonlocal request_count, start_time
         request_count += 1
         elapsed = time.time() - start_time
-        # Target: 14 requests per minute (under the ~16/min limit)
         expected_time = request_count * (60.0 / 14)
         if elapsed < expected_time:
             pause = expected_time - elapsed
@@ -290,7 +274,7 @@ def enrich_candidates_with_donors(candidates, include_donors=False):
             continue
 
         try:
-            # Get financial totals directly from candidate ID
+            # Step 1: Get financial totals (works with candidate_id)
             rate_limit_pause()
             totals = get_candidate_totals(fec_id)
             candidate["totals"] = totals
@@ -303,32 +287,38 @@ def enrich_candidates_with_donors(candidates, include_donors=False):
                 candidate["total_raised_display"] = "$0"
                 candidate["funding_breakdown"] = {"individual": 0, "pac": 0, "party": 0, "self": 0, "other": 0}
 
-            # Get top donors (only if requested and candidate raised significant money)
+            # Step 2: Get donors (requires committee_id for correct data)
             if include_donors and totals and totals["total_raised"] > 50000:
-                # Individual donors (by employer)
+                # Look up the principal campaign committee
                 rate_limit_pause()
-                individual_donors = get_top_individual_donors(fec_id)
+                cmte_id = get_principal_committee_id(fec_id)
 
-                # PAC donors (requires committee_id lookup)
-                pac_donors = []
-                pac_pct = candidate.get("funding_breakdown", {}).get("pac", 0)
-                if pac_pct > 2:
+                if cmte_id:
+                    # Individual donors (by employer)
                     rate_limit_pause()
-                    cmte_id = get_principal_committee_id(fec_id)
-                    if cmte_id:
+                    individual_donors = get_individual_donors(cmte_id)
+
+                    # PAC donors (only if candidate has PAC funding > 2%)
+                    pac_donors = []
+                    pac_pct = candidate.get("funding_breakdown", {}).get("pac", 0)
+                    if pac_pct > 2:
                         rate_limit_pause()
                         pac_donors = get_pac_donors(cmte_id)
 
-                # Combine, sort, take top 10
-                all_donors = individual_donors + pac_donors
-                all_donors.sort(key=lambda x: x["amount"], reverse=True)
-                candidate["donors"] = all_donors[:10]
-                if all_donors:
+                    # Combine, sort, take top 10
+                    all_donors = individual_donors + pac_donors
+                    all_donors.sort(key=lambda x: x["amount"], reverse=True)
+                    candidate["donors"] = all_donors[:10]
+
                     n_ind = len(individual_donors)
                     n_pac = len(pac_donors)
-                    print(f"({n_ind} individual + {n_pac} PAC donors)")
+                    if all_donors:
+                        print(f"({n_ind} ind + {n_pac} PAC)")
+                    else:
+                        print("(no itemized donors)")
                 else:
-                    print("(no itemized donors)")
+                    candidate["donors"] = []
+                    print("(no committee found)")
             else:
                 candidate["donors"] = []
                 if not include_donors:
