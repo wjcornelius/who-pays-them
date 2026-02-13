@@ -10,11 +10,13 @@ from pathlib import Path
 # Add pipeline dir to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from config import DATA_DIR, CACHE_DIR, STATE_NAMES
+from config import DATA_DIR, CACHE_DIR, STATE_NAMES, STATE_DISCLOSURE_URLS
 from fetch_districts import build_districts_json
 from fetch_candidates import fetch_all_candidates
 from fetch_donors import enrich_candidates_with_donors
 from fetch_governors import fetch_governor_candidates
+from fetch_governor_finance import enrich_governors_with_finance
+from fetch_state_finance import enrich_governors_with_state_finance
 
 
 def build_candidates_json(candidates):
@@ -69,6 +71,8 @@ def build_candidates_json(candidates):
             "top_donors": c.get("donors", [])[:5],  # Top 5 for summary
             "all_donors": c.get("donors", []),  # Full list for detail view
             "fec_url": f"https://www.fec.gov/data/candidate/{c['fec_id']}/" if c.get("fec_id") else "",
+            "tusa_url": c.get("tusa_url", ""),
+            "state_disclosure_url": STATE_DISCLOSURE_URLS.get(state, "") if office == "Governor" else "",
         }
 
         races[race_key]["candidates"].append(candidate_data)
@@ -183,12 +187,20 @@ def run_full_pipeline():
     enriched = enrich_candidates_with_donors(candidates, include_donors=True)
 
     # Step 4: Fetch governor candidates from Ballotpedia
-    print("\n[4/5] Fetching governor candidates...")
+    print("\n[4/7] Fetching governor candidates...")
     governors = fetch_governor_candidates()
+
+    # Step 5: Enrich governors with TransparencyUSA finance data
+    print("\n[5/7] Fetching governor campaign finance from TransparencyUSA...")
+    governors = enrich_governors_with_finance(governors)
+
+    # Step 6: Enrich remaining governors with state-specific data (NE, HI, etc.)
+    print("\n[6/7] Fetching state-specific campaign finance data...")
+    governors = enrich_governors_with_state_finance(governors)
     enriched.extend(governors)
 
-    # Step 5: Generate frontend JSON
-    print("\n[5/5] Generating frontend data...")
+    # Step 7: Generate frontend JSON
+    print("\n[7/7] Generating frontend data...")
     build_candidates_json(enriched)
     build_metadata_json()
 

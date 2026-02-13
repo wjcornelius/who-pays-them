@@ -71,3 +71,23 @@ STATE_NAMES = {
     "PR": "Puerto Rico", "GU": "Guam", "VI": "U.S. Virgin Islands",
     "AS": "American Samoa", "MP": "Northern Mariana Islands"
 }
+
+# State campaign finance disclosure websites (for states not on TransparencyUSA)
+STATE_DISCLOSURE_URLS = {
+    "AK": "https://aws.state.ak.us/ApocReports/CampaignDisclosure/CDSearch.aspx",
+    "AR": "https://ethics-disclosures.sos.arkansas.gov/",
+    "CT": "https://seec.ct.gov/Portal/eCRIS/eCrisSearch",
+    "HI": "https://ags.hawaii.gov/campaign/cc/view-searchable-data/",
+    "ID": "https://sunshine.sos.idaho.gov/",
+    "KS": "https://kssos.org/elections/cfr_viewer/cfr_examiner_entry.aspx",
+    "ME": "https://www.mainecampaignfinance.com/",
+    "MD": "https://campaignfinance.maryland.gov/",
+    "MA": "https://www.ocpf.us/",
+    "NE": "https://nadc-e.nebraska.gov/",
+    "OK": "https://guardian.ok.gov/",
+    "OR": "https://secure.sos.state.or.us/orestar/gotoPublicTransactionSearch.do",
+    "RI": "https://elections.ri.gov/finance/index.php",
+    "SD": "https://sdsos.gov/elections-voting/campaign-finance/Search.aspx",
+    "TN": "https://apps.tn.gov/tncamp/",
+    "VT": "https://campaignfinance.vermont.gov/",
+}

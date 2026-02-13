@@ -37,6 +37,8 @@ interface Race {
     }>;
     fec_id: string;
     fec_url: string;
+    tusa_url?: string;
+    state_disclosure_url?: string;
   }>;
 }
 
@@ -81,12 +83,6 @@ export default function ResultsPage() {
         const matchingRaces: Race[] = [];
         const state = info.state;
 
-        // Governor race (statewide)
-        const govKey = `${state}-governor`;
-        if (allRaces[govKey]) {
-          matchingRaces.push(allRaces[govKey]);
-        }
-
         // Senate race (statewide)
         const senateKey = `${state}-senate`;
         if (allRaces[senateKey]) {
@@ -99,6 +95,12 @@ export default function ResultsPage() {
           if (allRaces[houseKey]) {
             matchingRaces.push(allRaces[houseKey]);
           }
+        }
+
+        // Governor race (statewide, after congressional)
+        const govKey = `${state}-governor`;
+        if (allRaces[govKey]) {
+          matchingRaces.push(allRaces[govKey]);
         }
 
         setRaces(matchingRaces);

@@ -24,6 +24,8 @@ interface Candidate {
   top_donors: Donor[];
   fec_id: string;
   fec_url: string;
+  tusa_url?: string;
+  state_disclosure_url?: string;
   office?: string;
 }
 
@@ -80,8 +82,8 @@ export default function CandidateCard({ candidate }: { candidate: Candidate }) {
         )}
       </div>
 
-      {/* Funding breakdown bar (only if we have finance data) */}
-      {hasFinanceData && (
+      {/* Funding breakdown bar (only for federal candidates with FEC data) */}
+      {hasFinanceData && !isGovernor && (
         <div className="mb-4">
           <FundingBar breakdown={candidate.funding_breakdown} />
         </div>
@@ -90,7 +92,10 @@ export default function CandidateCard({ candidate }: { candidate: Candidate }) {
       {/* Note for governor candidates without finance data */}
       {isGovernor && !hasFinanceData && (
         <div className="text-sm text-gray-500 italic">
-          Campaign finance data for governor races is tracked by state agencies, not the FEC.
+          Finance data not yet available for this candidate.
+          {candidate.state_disclosure_url && (
+            <> Check <a href={candidate.state_disclosure_url} target="_blank" rel="noopener noreferrer" className="text-[#3b82f6] hover:underline not-italic">state disclosure records</a>.</>
+          )}
         </div>
       )}
 
@@ -114,12 +119,19 @@ export default function CandidateCard({ candidate }: { candidate: Candidate }) {
         </div>
       )}
 
-      {/* FEC link */}
-      {candidate.fec_url && (
+      {/* Source link */}
+      {(candidate.fec_url || candidate.tusa_url) && (
         <div className="mt-4 pt-3 border-t border-gray-100">
-          <a href={candidate.fec_url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#3b82f6] hover:underline">
-            View full FEC record →
-          </a>
+          {candidate.fec_url && (
+            <a href={candidate.fec_url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#3b82f6] hover:underline">
+              View full FEC record →
+            </a>
+          )}
+          {candidate.tusa_url && !candidate.fec_url && (
+            <a href={candidate.tusa_url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#3b82f6] hover:underline">
+              View full finance record →
+            </a>
+          )}
         </div>
       )}
     </div>

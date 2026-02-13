@@ -174,11 +174,18 @@ def fetch_governor_candidates():
         for url in urls:
             try:
                 resp = requests.get(url, timeout=30, headers={
-                    "User-Agent": "WhoPaysThem/1.0 (civic data project)"
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
                 })
                 if resp.status_code == 404:
                     continue
                 resp.raise_for_status()
+                # Check for CAPTCHA/rate limiting
+                if "captcha" in resp.text.lower() or "rate limit" in resp.text.lower():
+                    print("CAPTCHA detected, waiting 30s...", end=" ", flush=True)
+                    time.sleep(30)
+                    resp = requests.get(url, timeout=30, headers={
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                    })
                 candidates = _parse_candidates_from_page(resp.text, state)
                 if candidates:
                     print(f"{len(candidates)} candidates")
@@ -191,7 +198,7 @@ def fetch_governor_candidates():
         if not found:
             print("no candidates found")
 
-        time.sleep(1)  # Be respectful
+        time.sleep(3)  # Longer delay to avoid Ballotpedia CAPTCHA
 
     print(f"\n  Total governor candidates: {len(all_candidates)}")
 

@@ -1,7 +1,12 @@
 {
-  "last_updated": "2026-02-12T20:51:24.658951Z",
-  "data_source": "Federal Election Commission (FEC)",
-  "data_source_url": "https://www.fec.gov",
+  "last_updated": "2026-02-13T11:38:41.059789",
+  "total_races": 499,
+  "federal_races": 470,
+  "governor_races": 29,
   "election_year": 2026,
-  "disclaimer": "This tool presents publicly available campaign finance records from the FEC. It is non-partisan and does not endorse or oppose any candidate."
+  "data_sources": [
+    "FEC API",
+    "Ballotpedia",
+    "TransparencyUSA"
+  ]
 }
