@@ -119,8 +119,8 @@ export default function CandidateCard({ candidate }: { candidate: Candidate }) {
         </div>
       )}
 
-      {/* Source link */}
-      {(candidate.fec_url || candidate.tusa_url) && (
+      {/* Source link - only show when we have actual data to back it up */}
+      {hasFinanceData && (candidate.fec_url || candidate.tusa_url) && (
         <div className="mt-4 pt-3 border-t border-gray-100">
           {candidate.fec_url && (
             <a href={candidate.fec_url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#3b82f6] hover:underline">

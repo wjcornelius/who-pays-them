@@ -22,6 +22,14 @@ from config import CACHE_DIR
 
 HEADERS = {"User-Agent": "WhoPaysThem/1.0 (civic data project)"}
 
+# Uninformative donor entries — don't tell you WHO is paying
+_UNINFORMATIVE_KEYWORDS = ["UNITEMIZED", "AGGREGATED", "NOT ITEMIZED", "ANONYMOUS"]
+
+
+def _is_uninformative_donor(name):
+    """Check if a donor entry is uninformative (doesn't identify who is paying)."""
+    return any(kw in name.upper() for kw in _UNINFORMATIVE_KEYWORDS)
+
 
 # ─── Nebraska ──────────────────────────────────────────────────────────────────
 
@@ -93,6 +101,9 @@ def _fetch_ne_year(year, contributions):
         first_name = row.get("First Name", "")
         donor_name = f"{first_name} {last_name}".strip() if first_name else last_name
         source_type = row.get("Contributor or Transaction Source Type", "")
+
+        if _is_uninformative_donor(donor_name):
+            continue
 
         contributions[candidate or filer].append({
             "donor": donor_name,
@@ -210,6 +221,9 @@ def _fetch_ok_year(url, year, contributions):
         donor_name = f"{first_name} {last_name}".strip() if first_name else last_name
         source_type = row.get("Receipt Source Type", "")
 
+        if _is_uninformative_donor(donor_name):
+            continue
+
         contributions[candidate or committee].append({
             "donor": donor_name,
             "amount": amount,
@@ -292,6 +306,9 @@ def fetch_hawaii_governor(min_date="2025-01-01"):
 
         donor_name = r.get("contributor_name", "Unknown")
         contrib_type = r.get("contributor_type", "")
+
+        if _is_uninformative_donor(donor_name):
+            continue
 
         contributions[candidate].append({
             "donor": donor_name,

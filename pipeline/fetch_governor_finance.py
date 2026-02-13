@@ -255,6 +255,10 @@ def _parse_candidate_donors(html):
             name = name_raw
 
         if isinstance(amount, (int, float)) and amount > 0 and name:
+            # Skip uninformative entries that don't identify who is paying
+            name_upper = str(name).upper()
+            if any(kw in name_upper for kw in ["UNITEMIZED", "AGGREGATED", "NOT ITEMIZED", "ANONYMOUS"]):
+                continue
             donors.append({
                 "name": str(name),
                 "amount": float(amount),
@@ -449,9 +453,9 @@ def _merge_finance(candidates, finance_data):
                     "other": 0,
                 }
 
-            # Add TransparencyUSA URL if candidate has a slug
+            # Add TransparencyUSA URL only if candidate has actual finance data
             slug = best_match.get("slug")
-            if slug:
+            if slug and total > 0:
                 candidate["tusa_url"] = f"https://www.transparencyusa.org/{state.lower()}/candidate/{slug}"
 
             merged_count += 1

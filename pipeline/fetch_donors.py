@@ -107,6 +107,10 @@ def get_individual_donors(committee_id):
         name = (item.get("contributor_name") or "").strip()
         occupation = (item.get("contributor_occupation") or "").strip()
 
+        # Skip uninformative entries that don't identify who is paying
+        if _is_uninformative_donor(name) or _is_uninformative_donor(employer):
+            continue
+
         if not employer or employer in ("N/A", "NONE", "RETIRED", "SELF-EMPLOYED", "SELF", "NOT EMPLOYED", "HOMEMAKER", "INFORMATION REQUESTED"):
             if name:
                 by_name[name]["total"] += amount
@@ -144,6 +148,15 @@ def get_individual_donors(committee_id):
 # Fundraising platforms to filter out (not real donors)
 _PAC_FILTER_NAMES = {"WINRED", "ACTBLUE", "ACTBLUE TECHNICAL SERVICES"}
 _JFC_KEYWORDS = ["VICTORY FUND", "VICTORY COMMITTEE", "JOINT FUNDRAISING"]
+
+# Uninformative donor entries — these don't tell you WHO is paying
+_UNINFORMATIVE_KEYWORDS = ["UNITEMIZED", "AGGREGATED", "NOT ITEMIZED", "ANONYMOUS"]
+
+
+def _is_uninformative_donor(name):
+    """Check if a donor entry is uninformative (doesn't identify who is paying)."""
+    name_upper = name.upper()
+    return any(kw in name_upper for kw in _UNINFORMATIVE_KEYWORDS)
 
 
 def _is_platform_or_jfc(name):
@@ -187,6 +200,8 @@ def get_pac_donors(committee_id):
         if not name or amount <= 0:
             continue
         if _is_platform_or_jfc(name):
+            continue
+        if _is_uninformative_donor(name):
             continue
 
         by_committee[name]["total"] += amount
