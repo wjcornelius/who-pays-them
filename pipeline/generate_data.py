@@ -69,11 +69,23 @@ def build_candidates_json(candidates):
 
         races[race_key]["candidates"].append(candidate_data)
 
-    # Deduplicate: same name in same race = keep best entry (most donors, or incumbent)
+    # Deduplicate: same person in same race = keep best entry
+    # Normalize names to catch "Faris, Michael" vs "Faris, Michael James"
+    import re
+
+    def _dedup_key(name):
+        """Normalize name for dedup: lowercase, last name + first name only."""
+        parts = name.lower().split(",")
+        if len(parts) >= 2:
+            last = parts[0].strip()
+            first = parts[1].strip().split()[0] if parts[1].strip() else ""
+            return f"{last},{first}"
+        return name.lower().strip()
+
     for race in races.values():
         seen = {}
         for c in race["candidates"]:
-            key = c["name"]
+            key = _dedup_key(c["name"])
             if key in seen:
                 prev = seen[key]
                 prev_score = (prev["incumbent"], len(prev.get("all_donors", [])), prev["total_raised"] or 0)
@@ -83,6 +95,35 @@ def build_candidates_json(candidates):
             else:
                 seen[key] = c
         race["candidates"] = list(seen.values())
+
+    # Remove cross-race ghosts: if same person appears in Senate AND House,
+    # drop the entry with $0 raised (abandoned filing)
+    all_by_name = {}
+    for race_key, race in races.items():
+        for c in race["candidates"]:
+            norm = _dedup_key(c["name"])
+            state = race.get("state", "")
+            person_key = f"{state}:{norm}"
+            if person_key not in all_by_name:
+                all_by_name[person_key] = []
+            all_by_name[person_key].append((race_key, c))
+
+    remove_from = []  # (race_key, fec_id) pairs to remove
+    for person_key, entries in all_by_name.items():
+        if len(entries) <= 1:
+            continue
+        # If one has $0 raised and another doesn't, drop the $0 one
+        has_money = [(rk, c) for rk, c in entries if (c.get("total_raised") or 0) > 0]
+        no_money = [(rk, c) for rk, c in entries if (c.get("total_raised") or 0) == 0]
+        if has_money and no_money:
+            for rk, c in no_money:
+                remove_from.append((rk, c["fec_id"]))
+
+    for race_key, fec_id in remove_from:
+        if race_key in races:
+            races[race_key]["candidates"] = [
+                c for c in races[race_key]["candidates"] if c["fec_id"] != fec_id
+            ]
 
     # Sort candidates within each race: incumbents first, then by total raised
     for race in races.values():
