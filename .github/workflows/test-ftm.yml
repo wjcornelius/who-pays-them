@@ -1,0 +1,45 @@
+name: Test FTM Integration
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-ftm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install requests
+
+      - name: Test FTM API
+        env:
+          FTM_API_KEY: ${{ secrets.FTM_API_KEY }}
+        run: |
+          cd pipeline && python -c "
+          import sys
+          sys.path.insert(0, '.')
+          from fetch_ftm_finance import fetch_all_ftm_finance, _format_dollar
+
+          results = fetch_all_ftm_finance(states=['CT', 'ME', 'OR', 'MD', 'MA'])
+
+          if not results:
+              print('ERROR: No FTM data returned')
+              sys.exit(1)
+
+          print()
+          print('=== RESULTS ===')
+          for state, cands in sorted(results.items()):
+              total = sum(c['total_contributions'] for c in cands)
+              print(f'{state}: {len(cands)} candidates, {_format_dollar(total)} total')
+              for c in sorted(cands, key=lambda x: -x['total_contributions'])[:3]:
+                  print(f'  {c[\"name\"]} ({c[\"party\"]}): {_format_dollar(c[\"total_contributions\"])}')
+                  for d in c.get('donors', [])[:2]:
+                      print(f'    {d[\"name\"]}: {_format_dollar(d[\"amount\"])}')
+
+          print(f'\nSUCCESS: {sum(len(v) for v in results.values())} candidates across {len(results)} states')
+          "
