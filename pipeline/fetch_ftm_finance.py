@@ -59,7 +59,6 @@ def fetch_ftm_governor_candidates(state, year, api_key):
     Returns list of dicts: {name, total_contributions, entity_id, party}
     """
     data = _ftm_get("/", {
-        "dt": "1",
         "s": state,
         "y": str(year),
         "c-r-oc": "G00",  # Governor office (specific code)
@@ -129,7 +128,6 @@ def fetch_ftm_candidate_donors(entity_id, api_key, year=2026):
     Returns list of dicts: {name, amount, type}
     """
     data = _ftm_get("/", {
-        "dt": "1",
         "c-t-eid": str(entity_id),
         "y": str(year),
         "gro": "d-eid",  # Group by donor entity
