@@ -63,7 +63,7 @@ def fetch_ftm_governor_candidates(state, year, api_key):
         "s": state,
         "y": str(year),
         "c-r-oc": "G00",  # Governor office (specific code)
-        "gro": "c-t-id",  # Group by candidate ID (includes party)
+        "gro": "c-t-eid",  # Group by candidate entity ID (career summary)
     }, api_key)
 
     if not data or not isinstance(data, dict):
@@ -86,11 +86,13 @@ def fetch_ftm_governor_candidates(state, year, api_key):
                 name = val.get(key, val.get("Candidate", ""))
                 break
 
-        # Extract entity ID
+        # Extract entity ID (from Candidate_Entity or Career_Summary)
         eid = ""
-        eid_val = record.get("Candidate_Entity", {})
-        if isinstance(eid_val, dict):
-            eid = eid_val.get("id", "")
+        for eid_key in ["Candidate_Entity", "Career_Summary"]:
+            eid_val = record.get(eid_key, {})
+            if isinstance(eid_val, dict) and eid_val.get("id"):
+                eid = eid_val["id"]
+                break
 
         # Extract total
         total = 0
