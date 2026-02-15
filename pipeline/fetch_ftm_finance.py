@@ -45,7 +45,11 @@ def _ftm_get(endpoint, params, api_key):
         resp = requests.get(url, params=params, headers=HEADERS, timeout=30)
         if resp.status_code != 200:
             return None
-        return resp.json()
+        data = resp.json()
+        if isinstance(data, dict) and "error" in data:
+            print(f"\n  FTM API ERROR: {data['error']}")
+            return "RATE_LIMITED"
+        return data
     except Exception as e:
         print(f"    FTM API error: {e}")
         return None
@@ -65,6 +69,8 @@ def fetch_ftm_governor_candidates(state, year, api_key):
         "gro": "c-t-eid",  # Group by candidate entity ID (career summary)
     }, api_key)
 
+    if data == "RATE_LIMITED":
+        return "RATE_LIMITED"
     if not data or not isinstance(data, dict):
         return []
 
@@ -291,6 +297,10 @@ def fetch_all_ftm_finance(states=None, year=2026):
         found_year = year
         for try_year in range(year, year - 5, -1):
             candidates = fetch_ftm_governor_candidates(state, try_year, api_key)
+            if candidates == "RATE_LIMITED":
+                print("API RATE LIMITED - stopping FTM fetch")
+                print("  Account is pending Institute review. Try again in 1-2 business days.")
+                return all_finance
             if candidates:
                 found_year = try_year
                 break
