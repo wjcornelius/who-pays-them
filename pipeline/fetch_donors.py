@@ -256,6 +256,18 @@ def enrich_candidates_with_donors(candidates, include_donors=False):
     if include_donors:
         print("  (Including top donors via committee_id - this will take longer)")
 
+    # Load per-candidate cache (survives across CI runs via actions/cache)
+    donor_cache_path = CACHE_DIR / "donor_cache.json"
+    donor_cache = {}
+    if donor_cache_path.exists():
+        try:
+            with open(donor_cache_path, encoding="utf-8") as f:
+                donor_cache = json.load(f)
+            print(f"  Loaded cache with {len(donor_cache)} candidates")
+        except (json.JSONDecodeError, OSError):
+            donor_cache = {}
+
+    cache_hits = 0
     request_count = 0
     start_time = time.time()
 
@@ -286,6 +298,18 @@ def enrich_candidates_with_donors(candidates, include_donors=False):
             candidate["funding_breakdown"] = {"individual": 0, "pac": 0, "party": 0, "self": 0, "other": 0}
             candidate["total_raised_display"] = "$0"
             enriched.append(candidate)
+            continue
+
+        # Check cache first
+        if fec_id in donor_cache:
+            cached = donor_cache[fec_id]
+            candidate["totals"] = cached.get("totals")
+            candidate["donors"] = cached.get("donors", [])
+            candidate["funding_breakdown"] = cached.get("funding_breakdown", {})
+            candidate["total_raised_display"] = cached.get("total_raised_display", "$0")
+            enriched.append(candidate)
+            cache_hits += 1
+            print("(cached)")
             continue
 
         try:
@@ -348,10 +372,28 @@ def enrich_candidates_with_donors(candidates, include_donors=False):
             candidate["funding_breakdown"] = {"individual": 0, "pac": 0, "party": 0, "self": 0, "other": 0}
             candidate["total_raised_display"] = "$0"
 
+        # Save to cache
+        donor_cache[fec_id] = {
+            "totals": candidate.get("totals"),
+            "donors": candidate.get("donors", []),
+            "funding_breakdown": candidate.get("funding_breakdown", {}),
+            "total_raised_display": candidate.get("total_raised_display", "$0"),
+        }
         enriched.append(candidate)
 
+        # Periodic cache save (every 50 candidates)
+        if (i + 1) % 50 == 0:
+            CACHE_DIR.mkdir(parents=True, exist_ok=True)
+            with open(donor_cache_path, "w", encoding="utf-8") as f:
+                json.dump(donor_cache, f)
+
+    # Final cache save
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    with open(donor_cache_path, "w", encoding="utf-8") as f:
+        json.dump(donor_cache, f)
+
     elapsed = time.time() - start_time
-    print(f"\n  Done: {request_count} API calls in {elapsed/60:.1f} minutes")
+    print(f"\n  Done: {request_count} API calls, {cache_hits} cache hits, in {elapsed/60:.1f} minutes")
     return enriched
 
 

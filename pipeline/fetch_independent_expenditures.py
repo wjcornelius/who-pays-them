@@ -146,6 +146,17 @@ def enrich_candidates_with_outside_spending(candidates):
     Add independent expenditure data to candidates who raised above threshold.
     Only fetches for competitive races to stay within rate limits.
     """
+    # Load cache
+    ie_cache_path = CACHE_DIR / "ie_cache.json"
+    ie_cache = {}
+    if ie_cache_path.exists():
+        try:
+            with open(ie_cache_path, encoding="utf-8") as f:
+                ie_cache = json.load(f)
+            print(f"  Loaded IE cache with {len(ie_cache)} candidates")
+        except (json.JSONDecodeError, OSError):
+            ie_cache = {}
+
     # Count eligible candidates
     eligible = [
         c for c in candidates
@@ -156,16 +167,25 @@ def enrich_candidates_with_outside_spending(candidates):
     print(f"\n  Fetching outside spending for {len(eligible)} candidates (raised >= ${OUTSIDE_SPENDING_THRESHOLD:,})...")
 
     request_count = 0
+    cache_hits = 0
     start_time = time.time()
     found_count = 0
 
     for i, candidate in enumerate(eligible):
         fec_id = candidate["fec_id"]
-        name = candidate["name"]
+
+        # Check cache
+        if fec_id in ie_cache:
+            spending = ie_cache[fec_id]
+            if spending and (spending.get("support", 0) > 0 or spending.get("oppose", 0) > 0):
+                candidate["outside_spending"] = spending
+                found_count += 1
+            cache_hits += 1
+            continue
 
         if i % 50 == 0 and i > 0:
             elapsed = time.time() - start_time
-            rate = request_count / max(elapsed / 60, 0.1)
+            rate = request_count / max(elapsed / 60, 0.1) if request_count else 0
             print(f"\n  --- {i}/{len(eligible)} ({rate:.0f} req/min) ---", flush=True)
 
         # Rate limit: 14 req/min
@@ -176,12 +196,18 @@ def enrich_candidates_with_outside_spending(candidates):
             time.sleep(expected_time - elapsed)
 
         spending = get_independent_expenditures(fec_id)
+        ie_cache[fec_id] = spending
         if spending and (spending["support"] > 0 or spending["oppose"] > 0):
             candidate["outside_spending"] = spending
             found_count += 1
 
+    # Save cache
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    with open(ie_cache_path, "w", encoding="utf-8") as f:
+        json.dump(ie_cache, f)
+
     elapsed = time.time() - start_time
-    print(f"\n  Outside spending: {found_count}/{len(eligible)} candidates have IE data ({request_count} API calls in {elapsed/60:.1f} min)")
+    print(f"\n  Outside spending: {found_count}/{len(eligible)} with IE data ({request_count} API calls, {cache_hits} cached, {elapsed/60:.1f} min)")
     return candidates
 
 

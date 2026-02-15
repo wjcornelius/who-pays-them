@@ -152,6 +152,16 @@ def get_house_districts(state):
 
 def fetch_all_candidates():
     """Fetch all 2026 federal candidates."""
+    # Use cache if less than 7 days old (candidate list doesn't change often)
+    cache_path = CACHE_DIR / "candidates_raw.json"
+    if cache_path.exists():
+        import time as _time
+        age_hours = (_time.time() - cache_path.stat().st_mtime) / 3600
+        if age_hours < 168:  # 7 days
+            print("  Using cached candidate list")
+            with open(cache_path, encoding="utf-8") as f:
+                return json.load(f)
+
     print("Fetching 2026 federal candidates from FEC...")
     all_candidates = []
 
