@@ -27,6 +27,9 @@ FEC_API_KEY = os.environ.get("FEC_API_KEY", "DEMO_KEY")
 FEC_BASE_URL = "https://api.open.fec.gov/v1"
 ELECTION_YEAR = 2026
 
+# FollowTheMoney API (state-level campaign finance)
+FTM_API_KEY = os.environ.get("FTM_API_KEY", "")
+
 # State abbreviations
 STATES = [
     "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",

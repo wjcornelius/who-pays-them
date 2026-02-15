@@ -303,7 +303,7 @@ def enrich_candidates_with_donors(candidates, include_donors=False):
                 candidate["funding_breakdown"] = {"individual": 0, "pac": 0, "party": 0, "self": 0, "other": 0}
 
             # Step 2: Get donors (requires committee_id for correct data)
-            if include_donors and totals and totals["total_raised"] > 50000:
+            if include_donors and totals and totals["total_raised"] > 10000:
                 # Look up the principal campaign committee
                 rate_limit_pause()
                 cmte_id = get_principal_committee_id(fec_id)

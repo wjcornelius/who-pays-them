@@ -17,6 +17,18 @@ from fetch_donors import enrich_candidates_with_donors
 from fetch_governors import fetch_governor_candidates
 from fetch_governor_finance import enrich_governors_with_finance
 from fetch_state_finance import enrich_governors_with_state_finance
+from fetch_ftm_finance import enrich_governors_with_ftm
+from fetch_independent_expenditures import enrich_candidates_with_outside_spending
+
+
+def _format_money(amount):
+    """Format dollar amount for display."""
+    if amount >= 1_000_000:
+        return f"${amount / 1_000_000:.1f}M"
+    elif amount >= 1_000:
+        return f"${amount / 1_000:.0f}K"
+    else:
+        return f"${amount:,.0f}"
 
 
 def build_candidates_json(candidates):
@@ -55,6 +67,10 @@ def build_candidates_json(candidates):
             }
 
         # Clean up candidate for frontend (remove internal fields)
+        totals = c.get("totals") or {}
+        total_raised = totals.get("total_raised", 0)
+        total_spent = totals.get("total_spent", 0)
+
         candidate_data = {
             "name": c["name"],
             "party": c["party"],
@@ -64,12 +80,15 @@ def build_candidates_json(candidates):
             "office": office,
             "incumbent": c.get("incumbent", False),
             "fec_id": c.get("fec_id", ""),
-            "total_raised": c.get("totals", {}).get("total_raised", 0) if c.get("totals") else 0,
+            "total_raised": total_raised,
             "total_raised_display": c.get("total_raised_display", "$0"),
-            "cash_on_hand": c.get("totals", {}).get("cash_on_hand", 0) if c.get("totals") else 0,
+            "total_spent": total_spent,
+            "total_spent_display": _format_money(total_spent) if total_spent > 0 else "$0",
+            "cash_on_hand": totals.get("cash_on_hand", 0),
             "funding_breakdown": c.get("funding_breakdown", {}),
             "top_donors": c.get("donors", [])[:5],  # Top 5 for summary
             "all_donors": c.get("donors", []),  # Full list for detail view
+            "outside_spending": c.get("outside_spending", {}),
             "fec_url": f"https://www.fec.gov/data/candidate/{c['fec_id']}/" if c.get("fec_id") else "",
             "tusa_url": c.get("tusa_url", ""),
             "state_disclosure_url": STATE_DISCLOSURE_URLS.get(state, "") if office == "Governor" else "",
@@ -153,11 +172,17 @@ def build_metadata_json():
     """Save metadata about when data was last updated."""
     metadata = {
         "last_updated": datetime.utcnow().isoformat() + "Z",
-        "data_source": "Federal Election Commission (FEC) and Ballotpedia",
+        "data_sources": [
+            "Federal Election Commission (FEC)",
+            "Ballotpedia",
+            "TransparencyUSA (National Institute on Money in Politics)",
+            "FollowTheMoney.org",
+            "State campaign finance disclosure agencies",
+        ],
         "data_source_url": "https://www.fec.gov",
         "api_docs": "https://api.open.fec.gov/developers/",
         "election_year": 2026,
-        "disclaimer": "This tool presents publicly available campaign finance records from the FEC and candidate data from Ballotpedia. It is non-partisan and does not endorse or oppose any candidate.",
+        "disclaimer": "This tool presents publicly available campaign finance records from federal and state sources. It is non-partisan and does not endorse or oppose any candidate.",
     }
 
     output_path = DATA_DIR / "metadata.json"
@@ -175,33 +200,45 @@ def run_full_pipeline():
     print("=" * 60)
 
     # Step 1: Zip-to-district mapping
-    print("\n[1/5] Building zip-to-district mapping...")
+    print("\n[1/10] Building zip-to-district mapping...")
     build_districts_json()
 
     # Step 2: Fetch all federal candidates
-    print("\n[2/5] Fetching federal candidates from FEC...")
+    print("\n[2/10] Fetching federal candidates from FEC...")
     candidates = fetch_all_candidates()
 
     # Step 3: Enrich with donor data (including top donors from FEC Schedule A)
-    print("\n[3/5] Fetching financial + donor data...")
+    print("\n[3/10] Fetching financial + donor data...")
     enriched = enrich_candidates_with_donors(candidates, include_donors=True)
 
-    # Step 4: Fetch governor candidates from Ballotpedia
-    print("\n[4/7] Fetching governor candidates...")
+    # Step 4: Fetch independent expenditures (Super PAC spending)
+    print("\n[4/10] Fetching independent expenditure (Super PAC) data...")
+    enriched = enrich_candidates_with_outside_spending(enriched)
+
+    # Step 5: Fetch governor candidates from Ballotpedia
+    print("\n[5/10] Fetching governor candidates...")
     governors = fetch_governor_candidates()
 
-    # Step 5: Enrich governors with TransparencyUSA finance data
-    print("\n[5/7] Fetching governor campaign finance from TransparencyUSA...")
+    # Step 6: Enrich governors with TransparencyUSA finance data
+    print("\n[6/10] Fetching governor campaign finance from TransparencyUSA...")
     governors = enrich_governors_with_finance(governors)
 
-    # Step 6: Enrich remaining governors with state-specific data (NE, HI, etc.)
-    print("\n[6/7] Fetching state-specific campaign finance data...")
+    # Step 7: Enrich remaining governors with state-specific data (NE, HI, OK)
+    print("\n[7/10] Fetching state-specific campaign finance data...")
     governors = enrich_governors_with_state_finance(governors)
+
+    # Step 8: Enrich remaining governors with FollowTheMoney data (13 states)
+    print("\n[8/10] Fetching FollowTheMoney campaign finance data...")
+    governors = enrich_governors_with_ftm(governors)
+
     enriched.extend(governors)
 
-    # Step 7: Generate frontend JSON
-    print("\n[7/7] Generating frontend data...")
+    # Step 9: Generate frontend JSON
+    print("\n[9/10] Generating frontend data...")
     build_candidates_json(enriched)
+
+    # Step 10: Generate metadata
+    print("\n[10/10] Generating metadata...")
     build_metadata_json()
 
     print("\n" + "=" * 60)

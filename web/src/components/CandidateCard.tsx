@@ -7,6 +7,20 @@ interface Donor {
   description?: string;
 }
 
+interface OutsideSpender {
+  name: string;
+  amount: number;
+  support_oppose: string;
+}
+
+interface OutsideSpending {
+  support: number;
+  oppose: number;
+  support_display: string;
+  oppose_display: string;
+  top_spenders: OutsideSpender[];
+}
+
 interface Candidate {
   name: string;
   party: string;
@@ -14,6 +28,8 @@ interface Candidate {
   incumbent: boolean;
   total_raised: number;
   total_raised_display: string;
+  total_spent?: number;
+  total_spent_display?: string;
   funding_breakdown: {
     individual: number;
     pac: number;
@@ -22,6 +38,7 @@ interface Candidate {
     other: number;
   };
   top_donors: Donor[];
+  outside_spending?: OutsideSpending;
   fec_id: string;
   fec_url: string;
   tusa_url?: string;
@@ -58,6 +75,8 @@ function formatDollar(amount: number): string {
 export default function CandidateCard({ candidate }: { candidate: Candidate }) {
   const isGovernor = candidate.office === "Governor";
   const hasFinanceData = candidate.total_raised > 0 || candidate.top_donors.length > 0;
+  const hasOutsideSpending = candidate.outside_spending &&
+    ((candidate.outside_spending.support || 0) > 0 || (candidate.outside_spending.oppose || 0) > 0);
 
   return (
     <div className={`bg-white rounded-lg shadow-sm border-l-4 ${partyBorder(candidate.party)} p-5 hover:shadow-md transition-shadow`}>
@@ -78,24 +97,30 @@ export default function CandidateCard({ candidate }: { candidate: Candidate }) {
           <div className="text-right">
             <div className="text-2xl font-bold text-[#0a1628]">{candidate.total_raised_display}</div>
             <div className="text-xs text-gray-500">total raised</div>
+            {(candidate.total_spent ?? 0) > 0 && (
+              <>
+                <div className="text-sm font-semibold text-gray-600 mt-1">{candidate.total_spent_display}</div>
+                <div className="text-xs text-gray-400">total spent</div>
+              </>
+            )}
           </div>
         )}
       </div>
 
-      {/* Funding breakdown bar (only for federal candidates with FEC data) */}
-      {hasFinanceData && !isGovernor && (
-        <div className="mb-4">
-          <FundingBar breakdown={candidate.funding_breakdown} />
+      {/* No finance data message */}
+      {!hasFinanceData && (
+        <div className="text-sm text-gray-500 italic">
+          No financial reports filed yet.
+          {isGovernor && candidate.state_disclosure_url && (
+            <> Check <a href={candidate.state_disclosure_url} target="_blank" rel="noopener noreferrer" className="text-[#3b82f6] hover:underline not-italic">state disclosure records</a>.</>
+          )}
         </div>
       )}
 
-      {/* Note for governor candidates without finance data */}
-      {isGovernor && !hasFinanceData && (
-        <div className="text-sm text-gray-500 italic">
-          Finance data not yet available for this candidate.
-          {candidate.state_disclosure_url && (
-            <> Check <a href={candidate.state_disclosure_url} target="_blank" rel="noopener noreferrer" className="text-[#3b82f6] hover:underline not-italic">state disclosure records</a>.</>
-          )}
+      {/* Funding breakdown bar */}
+      {hasFinanceData && candidate.funding_breakdown && (
+        <div className="mb-4">
+          <FundingBar breakdown={candidate.funding_breakdown} />
         </div>
       )}
 
@@ -119,9 +144,47 @@ export default function CandidateCard({ candidate }: { candidate: Candidate }) {
         </div>
       )}
 
-      {/* Source link - only show when we have actual data to back it up */}
-      {hasFinanceData && (candidate.fec_url || candidate.tusa_url) && (
+      {/* Outside spending (Super PACs) */}
+      {hasOutsideSpending && candidate.outside_spending && (
         <div className="mt-4 pt-3 border-t border-gray-100">
+          <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Outside Spending</h4>
+          <div className="flex gap-4 mb-2 text-sm">
+            {candidate.outside_spending.support > 0 && (
+              <span className="text-green-700">
+                <span className="font-semibold">{candidate.outside_spending.support_display}</span>
+                <span className="text-xs text-green-600 ml-1">supporting</span>
+              </span>
+            )}
+            {candidate.outside_spending.oppose > 0 && (
+              <span className="text-red-700">
+                <span className="font-semibold">{candidate.outside_spending.oppose_display}</span>
+                <span className="text-xs text-red-600 ml-1">opposing</span>
+              </span>
+            )}
+          </div>
+          <div className="space-y-1">
+            {candidate.outside_spending.top_spenders.slice(0, 3).map((spender, i) => (
+              <div key={i} className="flex justify-between items-center text-xs">
+                <span className="text-gray-600 truncate mr-2">
+                  {spender.name}
+                  <span className={`ml-1 font-bold px-1 py-0.5 rounded ${
+                    spender.support_oppose === "S"
+                      ? "text-green-700 bg-green-50"
+                      : "text-red-700 bg-red-50"
+                  }`}>
+                    {spender.support_oppose === "S" ? "FOR" : "AGAINST"}
+                  </span>
+                </span>
+                <span className="font-medium text-gray-700 whitespace-nowrap">{formatDollar(spender.amount)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Source link */}
+      {(hasFinanceData || hasOutsideSpending) && (candidate.fec_url || candidate.tusa_url) && (
+        <div className={`mt-4 pt-3 ${hasOutsideSpending ? '' : 'border-t border-gray-100'}`}>
           {candidate.fec_url && (
             <a href={candidate.fec_url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#3b82f6] hover:underline">
               View full FEC record →

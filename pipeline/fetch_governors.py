@@ -128,6 +128,18 @@ def _parse_candidates_from_page(html, state_abbr):
                 elif is_rep_primary:
                     party = "Republican"
 
+            # Secondary detection: search row text for party keywords
+            if not party or party not in PARTY_NORMALIZE:
+                row_text_lower = row.get_text().lower()
+                if "democratic" in row_text_lower or "(d)" in row_text_lower:
+                    party = "Democratic"
+                elif "republican" in row_text_lower or "(r)" in row_text_lower:
+                    party = "Republican"
+                elif "libertarian" in row_text_lower or "(l)" in row_text_lower:
+                    party = "Libertarian"
+                elif "green" in row_text_lower or "(g)" in row_text_lower:
+                    party = "Green"
+
             # Check for incumbent
             row_text = row.get_text()
             incumbent = "Incumbent" in row_text
